@@ -39,9 +39,7 @@ WiFiMulti wifiMulti;
 #define BLACK 0
 
 uint8_t d[ROWS][COLS];
-uint8_t d_red[ROWS][COLS] = { RED };
-uint8_t d_green[ROWS][COLS] = { GREEN };
-uint8_t d_blue[ROWS][COLS] = { BLUE };
+uint8_t ds[10][ROWS][COLS];
 
 void init_display() {
   for (int r = 0; r != ROWS; ++r) {
@@ -73,6 +71,10 @@ void setup()
   Serial.print("Start");
 
   init_display();
+
+  uint8_t colors[] = { RED, RED | GREEN, GREEN, GREEN | BLUE, BLUE | RED, WHITE, WHITE };
+  for (int i = 0; i != 1 << 3; ++i)
+    memset(ds[i], colors[i], ROWS * COLS);
 }
 
 void setup1() {
@@ -101,6 +103,7 @@ uint32_t count = 0; // 積算時間
 uint32_t interval = 1000000;  // 1ループかかる時間
 uint8_t brightness = 100; // 明るさを 暗0-100明 で
 uint8_t step = -1;
+uint8_t frame = 0;
 void loop()
 {
   unsigned long start = micros();
@@ -110,13 +113,19 @@ void loop()
     brightness += step;
     if (brightness == 0 || brightness == 100)
       step *= -1;
+    if (brightness == 0)
+      frame += 1;
+    if (frame == 10)
+      frame = 1;
   }
 
   for (int r = 0; r != 16; ++r) {
     for (int c = 0; c != COLS; ++c) {
       // Set color
-      uint8_t p0 = d[r][c];
-      uint8_t p1 = d[r][c];
+      // uint8_t p0 = d[r][c];
+      // uint8_t p1 = d[r][c];
+      uint8_t p0 = ds[frame][r][c];
+      uint8_t p1 = ds[frame][r][c];
 
       // Brightness(darker 1000 << 10000 brighter)
       // if (1000 < count) {
@@ -124,24 +133,10 @@ void loop()
         p0 = p1 = BLACK;
       }
 
-      // digitalWrite(R0, p0 & RED);
-      // digitalWrite(G0, p0 & GREEN);
-      // digitalWrite(B0, p0 & BLUE);
-      // digitalWrite(R1, p1 & RED);
-      // digitalWrite(G1, p1 & GREEN);
-      // digitalWrite(B1, p1 & BLUE);
-      // gpio_put(R0, p0 & RED);
-      // gpio_put(G0, p0 & GREEN);
-      // gpio_put(B0, p0 & BLUE);
       gpio_put_masked(RGB0_MASK, p0 << R0);
-      // gpio_put(R1, p1 & RED);
-      // gpio_put(G1, p1 & GREEN);
-      // gpio_put(B1, p1 & BLUE);
       gpio_put_masked(RGB1_MASK, p1 << R1);
       
       // Clock to send
-      // digitalWrite(CLK, HIGH);
-      // digitalWrite(CLK, LOW);
       gpio_put(CLK, HIGH);
       // delayMicroseconds(0); // 入れないと速すぎてダメっぽい
       asm("nop \n");
@@ -149,24 +144,12 @@ void loop()
     }
 
 
-    // digitalWrite(ADDR_A, r & 1);
-    // digitalWrite(ADDR_B, (r >> 1) & 1);
-    // digitalWrite(ADDR_C, (r >> 2) & 1);
-    // digitalWrite(ADDR_D, (r >> 3) & 1);
-    // gpio_put(ADDR_A, r & 1);
-    // gpio_put(ADDR_B, (r >> 1) & 1);
-    // gpio_put(ADDR_C, (r >> 2) & 1);
-    // gpio_put(ADDR_D, (r >> 3) & 1);
     gpio_put_masked(ADDR_MASK, r << ADDR_A);
 
-    // digitalWrite(LAT, HIGH);
-    // digitalWrite(LAT, LOW);
     gpio_put(LAT, HIGH);
     gpio_put(LAT, LOW);
     digitalWrite(OE, HIGH); // ここだけgpio_put()だとnop()を入れても表示が崩れる
     digitalWrite(OE, LOW);
-    // gpio_put(OE, HIGH);
-    // gpio_put(OE, LOW);
   }
 
   interval = micros() - start;
