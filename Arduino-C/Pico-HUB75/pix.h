@@ -16,4 +16,6 @@
 #define WHITE RED | GREEN | BLUE
 #define BLACK 0
 
+#define MAX_BRIGHTNESS_RATE 3 // 1-6
+
 #endif  // __PIX_H__

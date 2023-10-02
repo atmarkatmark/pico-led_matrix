@@ -4,10 +4,10 @@
 #include "config.h"
 #include "pins.h"
 #include "pix.h"
+#include "chars.h"
 
 const char *ssid = SSID;
 const char *psk = PSK;
-WiFiMulti wifiMulti;
 
 uint8_t d[ROWS][COLS];
 uint8_t ds[10][ROWS][COLS];
@@ -31,6 +31,14 @@ void init_display() {
   }
 }
 
+void put_char(uint8_t d[ROWS][COLS], uint8_t dx, uint8_t dy, const uint8_t c[8][8], size_t size) {
+  for (int y = 0; y != size; ++y) {
+    for (int x = 0; x != size; ++x) {
+      d[dy + y][dx + x] = c[y][x] | 0xf0;
+    }
+  }
+}
+
 // Core 0
 void setup()
 {
@@ -45,9 +53,17 @@ void setup()
 
   Serial.begin(9600);
   Serial.print("Start");
-  delay(3000);
+  // delay(3000);
 
   init_display();
+  put_char(d, 0, 0, N0, 8);
+  put_char(d, 8, 0, N1, 8);
+  put_char(d, 16, 0, N2, 8);
+  put_char(d, 24, 0, N3, 8);
+  put_char(d, 32, 0, N4, 8);
+  put_char(d, 40, 0, N5, 8);
+  put_char(d, 48, 0, N6, 8);
+  put_char(d, 56, 0, N7, 8);
 
   uint8_t colors[] = { RED, RED | GREEN, GREEN, GREEN | BLUE, BLUE | RED, WHITE, WHITE };
   for (int i = 0; i != sizeof(colors); ++i)
@@ -57,14 +73,20 @@ void setup()
 // Core 1
 void setup1() {
   delay(1000);
-  wifiMulti.addAP(ssid, psk);
-  Serial.println("Core1: setup");
-  if (wifiMulti.run() == WL_CONNECTED) {
-    Serial.println("Core1: Successfully connected to AP");
-    configTime(9 * 3600L, 0, "ntp.nict.jp", "time.google.com");
-  } else {
-    Serial.println("Core1: Failed to connect to AP");
-  }
+
+  Serial.println("Core1: Connecting to AP...");
+  WiFi.begin(ssid, psk);
+  Serial.println("Core1: Successfully connected to AP");
+  configTime(9 * 3600L, 0, "ntp.nict.jp", "time.google.com");
+  // https://arduino-pico.readthedocs.io/en/latest/wifintp.html
+  // NTP.begin("ntp.nict.jp", "time.google.com");
+  // NTP.waitSet();
+  time_t now = time(NULL);
+  Serial.println("");
+  struct tm timeinfo;
+  gmtime_r(&now, &timeinfo);
+  Serial.print("Current time: ");
+  Serial.print(asctime(&timeinfo));
 }
 
 // Core 1
@@ -95,14 +117,16 @@ void loop()
     for (int c = 0; c != COLS; ++c) {
       // Set color
       uint8_t p0 = d[r][c];
-      uint8_t p1 = d[r][c];
+      uint8_t p1 = d[r + 16][c];
       // uint8_t p0 = ds[frame][r][c];
       // uint8_t p1 = ds[frame][r][c];
-      uint16_t br0 = ((p0 & 0xf0) >> 4) * 6 * 100; // 明るさだけ抽出
-      uint16_t br1 = ((p1 & 0xf0) >> 4) * 6 * 100;
+      uint32_t br0 = ((p0 & 0xf0) >> 4) * MAX_BRIGHTNESS_RATE * 100; // 明るさだけ抽出
+      uint32_t br1 = ((p1 & 0xf0) >> 4) * MAX_BRIGHTNESS_RATE * 100;
       p0 &= 0x0f; // 明るさビットを除去して色情報だけ残す
       p1 &= 0x0f;
 
+      // Serial.printf("%d %d\n", br0, br1);
+      // delay(50);
       // Brightness(darker 1000 << 10000 brighter)
       if (br0 < count)
         p0 = BLACK;
